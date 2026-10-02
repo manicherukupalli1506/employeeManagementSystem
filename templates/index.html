@@ -71,6 +71,7 @@
       <img src="https://ui-avatars.com/api/?name=Shubham&background=0D8ABC&color=fff" alt="Profile" style="width:32px;height:32px;border-radius:50%;margin-right:8px;vertical-align:middle;">
       <span style="vertical-align:middle;">Hi, Shubham!</span>
     </div>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
   </div>
 </aside>
 
@@ -193,15 +194,15 @@
           <div class="field-row cols-3" style="margin-bottom:12px">
             <div class="field">
               <label>First Name</label>
-              <input type="text" id="emp-fname" placeholder="e.g. Priya" />
+              <input type="text" id="emp-fname" placeholder="e.g. Priya" required />
             </div>
             <div class="field">
               <label>Last Name</label>
-              <input type="text" id="emp-lname" placeholder="e.g. Patel" />
+              <input type="text" id="emp-lname" placeholder="e.g. Patel" required />
             </div>
             <div class="field">
               <label>Email Address</label>
-              <input type="email" id="emp-email" placeholder="priya@company.com" />
+              <input type="email" id="emp-email" placeholder="priya@company.com" required />
             </div>
           </div>
           <div class="field-row cols-3">
@@ -211,11 +212,11 @@
             </div>
             <div class="field">
               <label>Annual Salary (₹)</label>
-              <input type="number" id="emp-salary" placeholder="0" min="0" />
+              <input type="number" id="emp-salary" placeholder="0" min="0" required />
             </div>
             <div class="field">
               <label>Department</label>
-              <select id="emp-dept"><option value="">— Select —</option></select>
+              <select id="emp-dept" required><option value="">— Select —</option></select>
             </div>
           </div>
         </div>
@@ -238,6 +239,30 @@
           Employee Directory
           <span class="table-count" id="emp-count">0 records</span>
         </div>
+        <input
+  type="text"
+  id="employee-search"
+  placeholder="Search employees..."
+>
+<select id="department-filter">
+  <option value="">All Departments</option>
+  <option value="Engineering">Engineering</option>
+  <option value="Finance">Finance</option>
+  <option value="Human Resources">Human Resources</option>
+  <option value="Information Technology">Information Technology</option>
+  <option value="Marketing">Marketing</option>
+  <option value="Operations">Operations</option>
+</select>
+<select id="employee-sort">
+    <option value="default">Sort Employees</option>
+    <option value="name-asc">Name: A → Z</option>
+    <option value="name-desc">Name: Z → A</option>
+    <option value="salary-asc">Salary: Low → High</option>
+    <option value="salary-desc">Salary: High → Low</option>
+</select>
+<button type="button" id="export-employees-btn" class="btn btn-primary">
+    Export CSV
+</button>
         <div class="tbl-wrap">
           <table>
             <thead>
@@ -253,6 +278,13 @@
             <tbody id="emp-tbody"></tbody>
           </table>
         </div>
+        <div class="pagination">
+    <button id="prev-page">Previous</button>
+
+    <span id="page-info">Page 1 of 1</span>
+
+    <button id="next-page">Next</button>
+</div>
         <div class="table-foot">
           <span>Double-click a row to edit</span>
           <span id="emp-foot-info">—</span>

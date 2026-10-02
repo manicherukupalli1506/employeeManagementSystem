@@ -15,7 +15,7 @@ function showGreeting() {
   else if (hour < 18) greet = 'Good afternoon';
   else greet = 'Good evening';
   const profile = document.querySelector('.profile-section span');
-  if (profile) profile.textContent = greet + ', Shubham!';
+  if (profile) profile.textContent = greet + ', Mani kumar!';
 }
 document.addEventListener('DOMContentLoaded', showGreeting);
 //
@@ -486,11 +486,18 @@ $('emp-upd-btn').onclick = async () => {
 };
 
 async function deleteEmp(id) {
-  await api('DELETE', `/api/employees/${id}`);
-  if (S.empEdit?.id === id) clearEmpForm();
-  await reload();
-}
+    const res = await api('DELETE', `/api/employees/${id}`);
 
+    if (res?.error) {
+        flash('emp-flash', false, res.error);
+        return;
+    }
+
+    flash('emp-flash', true, 'Employee deleted successfully');
+
+    if (S.empEdit?.id === id) clearEmpForm();
+    await reload();
+}
 // ═══════════════════════════════════════════════════════════════
 // DEPARTMENTS
 // ═══════════════════════════════════════════════════════════════
@@ -849,3 +856,164 @@ async function deleteDep(id) {
 // ── Boot ───────────────────────────────────────────────────────────────────
 navigate('dashboard');
 reload();
+// Employee Search + Department Filter
+const employeeSearch = document.getElementById('employee-search');
+const departmentFilter = document.getElementById('department-filter');
+
+function filterEmployees() {
+    const searchText = employeeSearch.value.toLowerCase();
+    const selectedDepartment = departmentFilter.value.toLowerCase();
+
+    const rows = document.querySelectorAll('#tab-employees tbody tr');
+
+    rows.forEach(row => {
+        const employeeData = row.textContent.toLowerCase();
+
+        const matchesSearch = employeeData.includes(searchText);
+        const matchesDepartment =
+            selectedDepartment === 'all' ||
+            employeeData.includes(selectedDepartment);
+
+        if (matchesSearch && matchesDepartment) {
+    row.dataset.filtered = 'true';
+} else {
+    row.dataset.filtered = 'false';
+}
+    });
+sortEmployees();
+currentPage = 1;
+paginateEmployees();
+}
+
+employeeSearch.addEventListener('input', filterEmployees);
+departmentFilter.addEventListener('change', filterEmployees);
+// Employee Sorting
+const employeeSort = document.getElementById('employee-sort');
+
+function sortEmployees() {
+    const sortValue = this.value;
+
+    const tbody = document.querySelector('#tab-employees tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    rows.sort((a, b) => {
+        const nameA = a.children[0].textContent.trim();
+        const nameB = b.children[0].textContent.trim();
+const salaryA = parseFloat(
+    a.children[4].textContent.replace(/[$,]/g, '')
+);
+
+const salaryB = parseFloat(
+    b.children[4].textContent.replace(/[$,]/g, '')
+);
+        if (sortValue === 'name-asc') {
+            return nameA.localeCompare(nameB);
+        }
+
+        if (sortValue === 'name-desc') {
+            return nameB.localeCompare(nameA);
+        }
+if (sortValue === 'salary-asc') {
+    return salaryA - salaryB;
+}
+
+if (sortValue === 'salary-desc') {
+    return salaryB - salaryA;
+}
+        return 0;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+}
+employeeSort.addEventListener('change', sortEmployees);
+// Employee Pagination
+let currentPage = 1;
+const rowsPerPage = 5;
+
+const prevPageButton = document.getElementById('prev-page');
+const nextPageButton = document.getElementById('next-page');
+const pageInfo = document.getElementById('page-info');
+
+function paginateEmployees() {
+    const rows = Array.from(
+        document.querySelectorAll('#tab-employees tbody tr')
+    );
+    const filteredRows = rows.filter(row =>
+    row.dataset.filtered !== 'false'
+);
+
+const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRows.length / rowsPerPage)
+);
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    rows.forEach(row => {
+    row.style.display = 'none';
+});
+
+filteredRows.forEach((row, index) => {
+    if (index >= start && index < end) {
+        row.style.display = '';
+    }
+});
+        
+
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+}
+prevPageButton.addEventListener('click', function () {
+    if (currentPage > 1) {
+        currentPage--;
+        paginateEmployees();
+    }
+});
+
+nextPageButton.addEventListener('click', function () {
+    const rows = document.querySelectorAll('#tab-employees tbody tr');
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    if (currentPage < totalPages) {
+        currentPage++;
+        paginateEmployees();
+    }
+});
+
+paginateEmployees();
+
+// Export Employees to CSV
+const exportEmployeesBtn = document.getElementById('export-employees-btn');
+
+exportEmployeesBtn.addEventListener('click', function () {
+    const rows = document.querySelectorAll('#tab-employees tbody tr');
+
+    let csv = 'Name,Email,Phone,Department,Salary\n';
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+
+        if (cells.length >= 5) {
+            const data = [
+                cells[0].textContent.trim(),
+                cells[1].textContent.trim(),
+                cells[2].textContent.trim(),
+                cells[3].textContent.trim(),
+                cells[4].textContent.trim()
+            ];
+
+            csv += data.map(value =>
+                `"${value.replace(/"/g, '""')}"`
+            ).join(',') + '\n';
+        }
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'employees.csv';
+    link.click();
+
+    URL.revokeObjectURL(url);
+});

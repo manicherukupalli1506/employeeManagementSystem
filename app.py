@@ -26,15 +26,14 @@ TODO: Add user authentication, API docs, and more tests
 # ── Dependents API ─────────────────────────────────────────────────────────────
 
 # All dependents-related endpoints below are written by Shubham.
-if __name__ == '__main__':
-    print('Employee Management System by Shubham (DBMS Lab, 2026)')
-    app.run(debug=True)
+
 import sqlite3
 import uuid
 from datetime import date
-from flask import Flask, render_template, request, jsonify, g
-
+from flask import Flask, render_template, request, jsonify, g, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
+app.secret_key = 'employee-management-secret-key'
 DATABASE = 'instance/company.db'
 
 
@@ -78,6 +77,12 @@ def init_db():
     db = sqlite3.connect(DATABASE)
     db.execute("PRAGMA foreign_keys = ON")
     db.executescript("""
+    CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+);
+
         CREATE TABLE IF NOT EXISTS departments (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
@@ -117,18 +122,20 @@ def init_db():
         );
     """)
 
-    # seed only when tables are empty
+        # Seed only when tables are empty
     count = db.execute("SELECT COUNT(*) FROM departments").fetchone()[0]
+
     if count == 0:
         d = {
             'finance': str(uuid.uuid4()),
-            'it':      str(uuid.uuid4()),
-            'eng':     str(uuid.uuid4()),
-            'hr':      str(uuid.uuid4()),
-            'mkt':     str(uuid.uuid4()),
-            'ops':     str(uuid.uuid4()),
+            'it': str(uuid.uuid4()),
+            'eng': str(uuid.uuid4()),
+            'hr': str(uuid.uuid4()),
+            'mkt': str(uuid.uuid4()),
+            'ops': str(uuid.uuid4())
         }
         db.executemany(
+        
             "INSERT INTO departments (id,name,budget) VALUES (?,?,?)",
             [
                 (d['finance'], 'Finance',                1200000),
@@ -186,16 +193,95 @@ def init_db():
                 (str(uuid.uuid4()), e['e9'], 'Sita Kumar',    'Parent', '1958-12-01'),
             ]
         )
-    db.commit()
-    db.close()
+            # Create default admin user
+    admin = db.execute(
+        "SELECT * FROM users WHERE username = ?",
+        ("admin",)
+    ).fetchone()
+
+    if admin is None:
+        hashed_password = generate_password_hash("admin123")
+        db.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            ("admin", hashed_password)
+        )
+        db.commit()
+        db.close()
 
 
 # ── Page ───────────────────────────────────────────────────────────────────────
-
 @app.route('/')
 def index():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
     return render_template('index.html')
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        db = get_db()
+        user = db.execute(
+            "SELECT * FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            return redirect(url_for('index'))
+
+        error = 'Invalid username or password'
+
+    return render_template('login.html', error=error)
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    error = None
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        if not username or not password:
+            error = 'Username and password are required'
+        else:
+            db = get_db()
+            existing_user = db.execute(
+                "SELECT * FROM users WHERE username = ?",
+                (username,)
+            ).fetchone()
+
+            if existing_user:
+                error = 'Username already exists'
+            else:
+                hashed_password = generate_password_hash(password)
+
+                db.execute(
+                    "INSERT INTO users (username, password) VALUES (?, ?)",
+                    (username, hashed_password)
+                )
+                db.commit()
+
+                return redirect(url_for('login'))
+
+    return render_template('signup.html', error=error)
+
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+    @app.before_request
+    def protect_api():
+     if request.path.startswith('/api/') and 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
 
 # ── Departments API ────────────────────────────────────────────────────────────
 
